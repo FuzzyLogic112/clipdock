@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: clipdock
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "10000"
+      - key: MAX_PARSE_JOBS
+        value: "1"
+      - key: MAX_MERGE_JOBS
+        value: "1"
+      - key: MAX_DOWNLOADS
+        value: "2"
+# The server reads RENDER_EXTERNAL_URL, which Render supplies at runtime.
+# Do not put a guessed onrender.com URL, a proxy credential or an API token here.

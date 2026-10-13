@@ -1,0 +1,16 @@
+# Explicit allowlist: local profiles, videos, credentials, tests and caches
+# never enter the remote Docker build context.
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!requirements-browser.txt
+!server.mjs
+!lib/
+!lib/**
+!public/
+!public/**
+!scripts/
+!scripts/*.py
+**/__pycache__/
+**/*.pyc

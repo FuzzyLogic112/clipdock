@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f2">
+    <meta name="description" content="拾帧 ClipDock，多平台视频下载工具，选择内置或扩展解析，查看视频源和清晰度并保存。">
+    <title>拾帧 ClipDock — 保存值得留下的片段</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#post-url">跳到视频链接输入框</a>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="拾帧 ClipDock 首页">
+          <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="11" fill="currentColor"/><path d="M12 13v-2h5M23 11h5v5M28 24v5h-5M17 29h-5v-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m17 15 8 5-8 5V15Z" fill="white"/></svg>
+          <span class="brand-name">拾帧 <span>ClipDock</span></span>
+        </a>
+        <nav class="header-nav" aria-label="主导航">
+          <a class="nav-link active" href="#workspace" aria-current="page">下载工具</a>
+          <a class="nav-link" href="#usage-guide">使用说明</a>
+        </nav>
+        <div class="local-badge"><span aria-hidden="true"></span><span id="runtime-mode">视频下载服务</span></div>
+      </header>
+
+      <main id="workspace">
+        <section class="hero" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow"><span></span> 多平台视频下载</p>
+            <h1 id="page-title">留住每一个<span>精彩片段。</span></h1>
+            <p class="hero-description">粘贴链接或整段分享文字，把喜欢的视频保存到本机。</p>
+            <ul id="platform-list" class="platform-list" aria-label="常用视频平台">
+              <li><span class="platform-symbol youtube-symbol" aria-hidden="true">▶</span>YouTube</li>
+              <li><span class="platform-symbol douyin-symbol" aria-hidden="true">♪</span>抖音</li>
+              <li><span class="platform-symbol tiktok-symbol" aria-hidden="true">♪</span>TikTok</li>
+              <li><span class="platform-symbol x-symbol" aria-hidden="true">𝕏</span>X / Twitter</li>
+            </ul>
+            <details id="more-platforms" class="more-platforms" hidden>
+              <summary><span id="more-platforms-label">更多平台</span><span aria-hidden="true">⌄</span></summary>
+              <ul id="extra-platform-list" class="platform-list" aria-label="更多视频平台"></ul>
+              <p>可用性取决于视频权限和平台限制，扩展平台逐步实测中。</p>
+            </details>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="art-grid"></div>
+            <div class="art-back"></div>
+            <div class="art-frame"><svg viewBox="0 0 64 64" fill="none"><path d="m25 19 21 13-21 13V19Z" fill="currentColor"/></svg><span class="frame-dot"></span><span class="frame-line"></span></div>
+            <div class="art-download"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m-4-4 4 4 4-4M5 16v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </div>
+        </section>
+
+        <div id="health-notice" class="notice notice-warning" role="status" hidden></div>
+        <div id="catalog-notice" class="notice notice-warning" role="status" hidden></div>
+
+        <div class="workspace-grid">
+          <div class="main-column">
+            <section class="tool-card" aria-labelledby="input-title">
+              <div class="card-heading"><div><span class="section-index">01</span><h2 id="input-title">粘贴视频链接</h2></div><span class="quiet-label">自动识别平台</span></div>
+              <form id="parse-form" novalidate>
+                <label for="post-url" class="sr-only">视频链接或包含单个链接的分享文字</label>
+                <div class="form-row">
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" class="input-icon" aria-hidden="true"><path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 1)" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    <input id="post-url" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="8192" placeholder="粘贴视频链接，或直接粘贴整段分享文字" aria-describedby="input-help form-message" required>
+                    <button type="button" id="paste-button" class="paste-button" title="从剪贴板粘贴">粘贴</button>
+                  </div>
+                  <button type="submit" id="parse-button" class="button button-primary"><span>解析视频</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+                <div class="input-meta"><p id="input-help">支持公开视频、Shorts 和平台分享短链接</p><kbd>Enter ↵</kbd></div>
+                <div class="provider-row">
+                  <label for="provider-select">解析方式</label>
+                  <select id="provider-select" class="provider-select" aria-describedby="provider-description provider-disclosure" disabled>
+                    <option value="local">内置解析</option>
+                  </select>
+                  <span id="provider-description">正在读取可用解析方式…</span>
+                </div>
+                <p id="provider-disclosure" class="provider-disclosure" hidden>扩展解析会将视频链接发送到 GreenVideo。</p>
+                <p id="form-message" class="form-message" role="status" hidden></p>
+              </form>
+              <p class="watermark-note"><span aria-hidden="true">✓</span>无平台水印源优先；原画面自带文字 / Logo 不做自动擦除。</p>
+            </section>
+
+            <section id="result-region" class="result-region" aria-labelledby="result-title" aria-busy="false">
+              <div id="empty-state" class="empty-state">
+                <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="8" y="12" width="32" height="26" rx="5" stroke="currentColor" stroke-width="1.5"/><path d="M15 7h18M20 21l9 5-9 5V21Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <h2 id="result-title">你的视频，会出现在这里</h2>
+                <p>在上方粘贴链接，开始第一段收藏。</p>
+                <div class="empty-tags"><span><i></i>多平台解析</span><span><i></i>选择清晰度</span><span><i></i>本地保存</span></div>
+              </div>
+
+              <div id="loading-state" class="loading-state" hidden>
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <h2>正在读取链接中的视频</h2>
+                <p id="loading-detail">正在读取视频信息，请稍候…</p>
+                <button id="cancel-button" class="text-button" type="button">取消解析</button>
+              </div>
+
+              <div id="error-state" class="error-state" hidden>
+                <div class="error-icon" aria-hidden="true">!</div>
+                <h2>这次没能解析成功</h2>
+                <p id="error-detail"></p>
+                <button id="retry-button" class="button button-secondary" type="button">重新尝试<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M19 12a7 7 0 1 0-2 5M20 12a8 8 0 0 0-2-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              </div>
+
+              <div id="results" hidden>
+                <div class="result-heading"><div><span class="section-index">02</span><h2>选择并下载</h2><span id="video-count" class="count-badge"></span><span id="result-platform" class="platform-result" hidden></span><span id="result-provider" class="provider-result" hidden></span></div><a id="source-link" class="source-link" href="#" target="_blank" rel="noopener noreferrer">查看原视频 ↗</a></div>
+                <p id="result-summary" class="result-summary"></p>
+                <div id="video-list" class="video-list"></div>
+                <p class="download-note">需合并的规格会先准备画面和音轨，再交给浏览器保存。请在浏览器下载列表中确认保存进度；链接过期时重新解析即可。</p>
+              </div>
+            </section>
+          </div>
+
+          <aside class="history-card" aria-labelledby="history-title">
+            <div class="history-heading"><h2 id="history-title"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5v5h5M4 10a8 8 0 1 1 1 8M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>最近解析</h2><button id="clear-history" class="text-button" type="button" hidden>清空</button></div>
+            <div id="history-empty" class="history-empty"><div class="history-lines" aria-hidden="true"><span></span><span></span><span></span></div><p>还没有解析记录</p><span>成功解析的视频会保存在这里，<br>下次回来，接着收藏。</span></div>
+            <ol id="history-list" class="history-list" aria-label="最近成功解析的视频"></ol>
+            <p class="history-note"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 7V4a3 3 0 0 1 6 0v3" stroke="currentColor" stroke-width="1.2"/></svg>仅保存在当前浏览器 · 最多 8 条</p>
+          </aside>
+        </div>
+
+        <section id="usage-guide" class="usage-guide" aria-labelledby="guide-title">
+          <div class="guide-heading"><h2 id="guide-title">三个步骤，轻松留存</h2><span>面向可公开访问的视频</span></div>
+          <div class="steps-grid">
+            <article><span class="step-number">1</span><div><h3>复制视频分享链接</h3><p>从支持平台的分享菜单复制，<br class="desktop-break">含单个链接的分享文字也可粘贴。</p></div></article>
+            <article><span class="step-number">2</span><div><h3>查看可用的视频源</h3><p>自动识别平台和可用清晰度，<br class="desktop-break">优先选中无平台水印的规格。</p></div></article>
+            <article><span class="step-number">3</span><div><h3>选清晰度，保存</h3><p>按需合并画面和音轨，<br class="desktop-break">准备完成后交给浏览器保存。</p></div></article>
+          </div>
+          <details class="help-detail"><summary>内置、扩展和自动解析有什么区别？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>内置解析由运行此网站的服务器连接视频平台。扩展解析会将视频链接发送到 GreenVideo 获取可用视频源；自动模式优先尝试内置解析，必要时使用扩展解析，结果上会标出实际来源。GreenVideo 目前暂停 YouTube 和抖音解析，这两个平台请使用自动或内置方式。平台是否可用仍取决于当前网络、视频权限和服务状态。</p></details>
+          <details class="help-detail"><summary>“无平台水印源优先”是什么意思？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>如果平台提供可确认的无平台水印视频源，会优先选中它。每个规格会标明实际可确认的水印状态；不能确认时会如实提示。原画面自带的文字、作者 Logo 或已嵌入画面的标记不会被自动擦除。</p></details>
+          <details class="help-detail"><summary>为什么有些视频无法解析或下载？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>受保护、已删除、需要登录或受地区限制的视频可能无法读取，平台验证或网络异常也可能导致失败。请先确认原视频可公开访问，再重新尝试。部分高清规格需要先合并音轨，准备进度会显示在视频卡片中；取消等待只停止页面等待，视频可能仍在准备。</p></details>
+        </section>
+      </main>
+
+      <footer class="site-footer"><span>拾帧 ClipDock<span class="footer-dot">·</span>值得留下，就留在本地。</span><span>为简单的下载而做</span></footer>
+    </div>
+    <div id="app-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

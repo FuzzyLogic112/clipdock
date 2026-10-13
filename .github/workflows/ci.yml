@@ -1,0 +1,39 @@
+name: Validate ClipDock
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clipdock-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm ci
+      - name: Test
+        run: |
+          npm test
+          node --check public/app.js
+          python3 -m py_compile scripts/render_public_video.py scripts/tiktok_player.py
+      - name: Build production container
+        run: docker build --tag clipdock:check .
+      - name: Verify dependencies, HTTP, and anonymous Chrome in 512 MB
+        run: docker run --rm --memory=512m --cpus=1 clipdock:check python scripts/container_smoke.py
