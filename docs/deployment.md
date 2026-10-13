@@ -11,6 +11,8 @@ ClipDock 需要持续运行的 Node 服务、Python / yt-dlp、FFmpeg 和 Chrome
 
 服务自动读取 Render 提供的 `RENDER_EXTERNAL_URL`。无需填写或猜测子域名。自定义域名部署时将 `PUBLIC_ORIGIN` 设置为浏览器访问的完整 HTTPS origin，例如 `https://video.example.com`，不要带路径。
 
+部署后请核对 Render 实际运行的 Git 提交。通过公开仓库 URL 创建的服务不支持自动部署；需要手动发布，或先连接 Git provider。即使接口显示 `autoDeploy`，也应以实际部署记录为准。[Render 部署来源说明](https://render.com/docs/web-services#deploy-your-own-code)
+
 | 配置 | 默认值 / 作用 |
 | --- | --- |
 | `HOST` | 容器使用 `0.0.0.0`，本地启动仍可使用环回地址 |

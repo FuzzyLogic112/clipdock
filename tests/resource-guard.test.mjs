@@ -20,6 +20,43 @@ test('container memory reads v2 and v1 limits, never host total memory', async (
   }) }), { limitBytes: 1024 * MIB, usageBytes: 100 * MIB });
 });
 
+test('cgroup v2 diagnostics retain only safe numeric memory.stat fields', async () => {
+  const snapshot = await readContainerMemory({ platform: 'linux', readFile: reader({
+    '/sys/fs/cgroup/memory.max': String(512 * MIB), '/sys/fs/cgroup/memory.current': String(390 * MIB),
+    '/sys/fs/cgroup/memory.stat': 'anon 123\nfile 456\ninactive_file 300\nfile_dirty 7\nfile_writeback 8\nkernel 10\n'
+      + 'slab_reclaimable 11\nactive_file -1\nshmem 1.5\nsecret_url https://private.example/\nunknown_counter 999\nswapcached 9223372036854771712\n',
+  }) });
+  assert.deepEqual(snapshot.breakdown, { anon: 123, file: 456, inactive_file: 300, file_dirty: 7, file_writeback: 8, kernel: 10, slab_reclaimable: 11 });
+  assert.equal(memoryPressure(snapshot).exceeded, true);
+  assert.equal(memoryPressure(snapshot).thresholdBytes, 384 * MIB);
+  assert.deepEqual(memoryPressure(snapshot).breakdown, snapshot.breakdown);
+  assert.doesNotMatch(JSON.stringify(snapshot), /private|secret|unknown_counter/);
+});
+
+test('cgroup v1 diagnostics map hierarchical counters and tolerate missing memory.stat', async () => {
+  const files = {
+    '/sys/fs/cgroup/memory/memory.limit_in_bytes': String(512 * MIB), '/sys/fs/cgroup/memory/memory.usage_in_bytes': String(390 * MIB),
+    '/sys/fs/cgroup/memory/memory.stat': 'rss 1\ntotal_rss 123\ncache 2\ntotal_cache 456\ninactive_file 3\ntotal_inactive_file 300\n'
+      + 'total_active_file 156\ntotal_dirty 7\nwriteback 8\ntotal_shmem 9\nswapcached 10\n',
+  };
+  const snapshot = await readContainerMemory({ platform: 'linux', readFile: reader(files) });
+  assert.deepEqual(snapshot.breakdown, { anon: 123, file: 456, inactive_file: 300, active_file: 156,
+    shmem: 9, file_dirty: 7, file_writeback: 8, swapcached: 10 });
+  delete files['/sys/fs/cgroup/memory/memory.stat'];
+  const withoutStat = await readContainerMemory({ platform: 'linux', readFile: reader(files) });
+  assert.deepEqual(withoutStat, { limitBytes: 512 * MIB, usageBytes: 390 * MIB });
+  assert.equal(memoryPressure(withoutStat).exceeded, true);
+});
+
+test('diagnostic snapshot data cannot change the threshold or inject text into limit logs', () => {
+  const pressure = memoryPressure({ limitBytes: 512 * MIB, usageBytes: 390 * MIB,
+    breakdown: { anon: 100, inactive_file: 380 * MIB, file: 'private-token', kernel: -1, secret: 'private-value' } });
+  assert.deepEqual(pressure.breakdown, { anon: 100, inactive_file: 380 * MIB });
+  assert.equal(pressure.exceeded, true);
+  assert.equal(pressure.thresholdBytes, 384 * MIB);
+  assert.doesNotMatch(JSON.stringify(pressure), /private|secret/);
+});
+
 test('unlimited, missing, malformed and non-Linux cgroups disable the guard', async () => {
   for (const limit of ['max', '9223372036854771712', '-1', 'NaN', '0', '512MB']) {
     assert.equal(await readContainerMemory({ platform: 'linux', readFile: reader({
