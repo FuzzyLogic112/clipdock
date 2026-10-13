@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTweetUrl, normalizeMetadata, metadataFromDouyinShareHtml, renderPublicVideo } from '../lib/extractor.mjs';
+import { normalizeTweetUrl, normalizeMetadata, normalizeExtractorResult, metadataFromDouyinShareHtml, renderPublicVideo } from '../lib/extractor.mjs';
 
 test('normalizes trusted X/Twitter status URLs without tracking data', () => {
   assert.equal(normalizeTweetUrl(' https://www.twitter.com/example_1/status/12345?s=20#fragment '), 'https://x.com/example_1/status/12345');
@@ -96,6 +96,47 @@ test('YouTube video-only MP4 pairs with trusted M4A and strips unsafe request he
   assert.throws(() => normalizeMetadata({ formats: [{ ...base, format_id: 'no-audio' }] }, 'youtube'), { code: 'NO_MEDIA' });
 });
 
+test('successful yt-dlp exit without formats preserves YouTube bot and dependency failures', () => {
+  const empty = { code: 0, stdout: JSON.stringify({ id: 'video', formats: [] }) };
+  for (const [stderr, code, status] of [
+    ["WARNING: Sign in to confirm you’re not a bot. Use --cookies-from-browser", 'PLATFORM_BLOCKED', 422],
+    ['WARNING: No supported JavaScript runtime could be found. Only images are available', 'EXTRACTOR_SETUP', 503],
+    ['WARNING: Signature solving failed: Some formats may be missing', 'EXTRACTOR_SETUP', 503],
+    ['WARNING: web client https formats require a GVS PO Token which was not provided', 'PLATFORM_BLOCKED', 422],
+    ['WARNING: The current session has been rate-limited by YouTube', 'RATE_LIMITED', 429],
+  ]) assert.throws(() => normalizeExtractorResult({ ...empty, stderr }, 'youtube'), { code, status });
+  assert.throws(() => normalizeExtractorResult({ code: 1, stdout: '', stderr: 'ERROR: Sign in to confirm you\'re not a bot' }, 'youtube'), { code: 'PLATFORM_BLOCKED' });
+});
+
+test('warnings about skipped clients do not discard working YouTube formats', () => {
+  const result = normalizeExtractorResult({ code: 0, stderr: 'WARNING: Some formats require a GVS PO Token which was not provided', stdout: JSON.stringify({
+    id: 'video', formats: [{ format_id: '18', ext: 'mp4', protocol: 'https', vcodec: 'h264', acodec: 'aac', url: 'https://rr1.googlevideo.com/videoplayback?id=video' }],
+  }) }, 'youtube');
+  assert.equal(result.videos[0].formats[0].id, '18');
+});
+
+test('failed extractor diagnostics report protocols without leaking URLs, titles, or raw warnings', () => {
+  let failure;
+  try {
+    normalizeExtractorResult({ code: 0, stderr: 'WARNING: Only images are available; confidential-warning-secret', stdout: JSON.stringify({
+      title: 'private-title-secret', http_headers: { Cookie: 'private-cookie-secret' }, formats: [
+        { protocol: 'm3u8_native', vcodec: 'avc1.42', ext: 'mp4', url: 'https://manifest.googlevideo.com/api/manifest.m3u8?token=private-url-secret' },
+        { protocol: 'mhtml', vcodec: 'none', url: 'https://private-host-secret.example/storyboard' },
+        { protocol: 'https', vcodec: 'av01.00', ext: 'mp4', has_drm: true, url: 'https://rr1.googlevideo.com/videoplayback?token=private-url-secret' },
+      ],
+    }) }, 'youtube');
+  } catch (error) { failure = error; }
+  assert.equal(failure.code, 'NO_MEDIA');
+  assert.equal(failure.diagnostics.totalFormats, 3);
+  assert.deepEqual(failure.diagnostics.protocols, { m3u8_native: 1, mhtml: 1, https: 1 });
+  assert.deepEqual(failure.diagnostics.videoCodecs, { h264: 1, none: 1, av1: 1 });
+  assert.equal(failure.diagnostics.drmFormats, 1);
+  assert.deepEqual(failure.diagnostics.clues, ['only_images']);
+  assert.equal(failure.diagnostics.domains['manifest.googlevideo.com'], 1);
+  assert.equal(failure.diagnostics.domains.untrusted_or_missing, 1);
+  assert.doesNotMatch(JSON.stringify(failure.diagnostics), /private-|confidential-|https:|token=|Cookie/);
+});
+
 test('TikTok chooses evidence-backed playback over watermarked download at equal quality', () => {
   const base = { protocol: 'https', ext: 'mp4', width: 720, height: 1280, vcodec: 'h264', acodec: 'aac' };
   const result = normalizeMetadata({ formats: [
@@ -154,11 +195,17 @@ test('browser renderer rejects unsupported targets before spawning and honors pr
   await assert.rejects(renderPublicVideo('https://www.douyin.com/video/123', { signal: AbortSignal.abort() }), { code: 'REQUEST_ABORTED' });
 });
 
+test('browser renderer rejects insufficient container memory before launching Python', async () => {
+  await assert.rejects(renderPublicVideo('https://www.douyin.com/video/123', {
+    readMemory: async () => ({ limitBytes: 512 * 1024 * 1024, usageBytes: 400 * 1024 * 1024 }),
+  }), { code: 'BROWSER_RESOURCE_LIMIT', status: 503 });
+});
+
 test('missing browser Python returns an actionable setup error without fetching a page', async () => {
   const original = process.env.SCRAPLING_PYTHON;
   process.env.SCRAPLING_PYTHON = process.platform === 'win32' ? 'C:/clipdock-definitely-missing/python.exe' : '/clipdock-definitely-missing/python';
   try {
-    await assert.rejects(renderPublicVideo('https://www.douyin.com/video/123'), { code: 'BROWSER_MISSING', status: 503 });
+    await assert.rejects(renderPublicVideo('https://www.douyin.com/video/123', { readMemory: async () => null }), { code: 'BROWSER_MISSING', status: 503 });
   } finally {
     if (original === undefined) delete process.env.SCRAPLING_PYTHON; else process.env.SCRAPLING_PYTHON = original;
   }

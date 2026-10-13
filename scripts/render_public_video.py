@@ -16,28 +16,8 @@ from urllib.parse import urlsplit, unquote
 from urllib.request import proxy_bypass_environment
 
 
-PLAYER_DATA = r"""(expectedId) => {
-  if (location.hostname !== 'www.douyin.com' || location.pathname.replace(/\/$/, '') !== '/video/' + expectedId) return null;
-  const trusted = value => {
-    try { const u = new URL(value, location.href); return u.protocol === 'https:' && !u.port && !u.username && !u.password
-      && (u.hostname === 'douyinvod.com' || u.hostname.endsWith('.douyinvod.com'))
-      && u.searchParams.get('__vid') === expectedId ? u.href : null; } catch { return null; }
-  };
-  for (const video of document.querySelectorAll('video')) {
-    const urls = [...new Set([video.currentSrc, video.src, ...Array.from(video.querySelectorAll('source')).map(s => s.src)].map(trusted).filter(Boolean))];
-    if (!urls.length) continue;
-    const meta = name => document.querySelector('meta[name="' + name + '"], meta[property="' + name + '"]')?.content;
-    const description = meta('description') || '';
-    const author = description.match(/ - (.+?)于\d{8}发布/)?.[1] || '';
-    return { id: expectedId, title: document.title.replace(/\s*-\s*抖音\s*$/, ''), uploader: author,
-      thumbnail: meta('lark:url:video_cover_image_url') || meta('og:image'),
-      duration: Number.isFinite(video.duration) && video.duration >= 0 ? video.duration : null,
-      formats: urls.slice(0, 8).map((url, index) => ({ format_id: 'browser-play-' + index, url, ext: 'mp4', protocol: 'https',
-        width: video.videoWidth || null, height: video.videoHeight || null, _clipdock_webpage_original: true,
-        http_headers: { 'User-Agent': navigator.userAgent, Referer: 'https://www.douyin.com/' } })) };
-  }
-  return null;
-}"""
+PLAYER_DATA = Path(__file__).with_name("douyin_player.js").read_text(encoding="utf-8")
+MOBILE_AGENT = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
 
 def emit(value):
@@ -115,31 +95,54 @@ def main():
         return error("BROWSER_MISSING", "缺少匿名浏览器解析依赖，请运行 setup-browser.cmd。")
 
     result = None
+    challenged = False
+    phase_deadline = float("inf")
     deadline = time.monotonic() + args.timeout_ms / 1000 - 2
 
     def inspect_player(page):
-        nonlocal result
-        # Match the successful anonymous-browser check: normal JavaScript gets time to render.
-        page.wait_for_timeout(max(0, min(8000, int((deadline - time.monotonic()) * 1000))))
-        while time.monotonic() < deadline:
+        nonlocal result, challenged
+        if platform == "tiktok":
+            page.wait_for_timeout(max(0, min(8000, int((deadline - time.monotonic()) * 1000))))
+        while time.monotonic() < min(deadline, phase_deadline):
             result = page.evaluate(player_script, match.group(1))
             if result:
                 return
             # This is an ordinary page load, never a CAPTCHA or login interaction.
             challenges = page.locator('[id*="captcha"], [class*="captcha_verify"], iframe[src*="captcha"]')
             if any(challenges.nth(index).is_visible() for index in range(min(challenges.count(), 8))):
+                challenged = True
                 return
             page.wait_for_timeout(750)
 
+    def setup_page(page):
+        # Metadata extraction does not need image/font files or video playback.
+        page.route("**/*", lambda route: route.abort() if route.request.resource_type in {"image", "font", "media"} else route.continue_())
+
     try:
         with fresh_profile(args.profile_dir) as profile:
-            with contextlib.redirect_stdout(sys.stderr):
-                DynamicFetcher.fetch(args.url, headless=True, real_chrome=True,
-                    proxy=browser_proxy(args.url),
-                    user_data_dir=profile, google_search=False, disable_resources=False,
-                    network_idle=False, load_dom=True, wait=0, locale="zh-CN",
-                    timeout=min(args.timeout_ms - 1000, 30000), retries=1,
-                    page_action=inspect_player)
+            targets = [(args.url, False)]
+            if platform == "douyin":
+                targets.insert(0, ("https://www.iesdouyin.com/share/video/" + match.group(1) + "/", True))
+            for target, mobile in targets:
+                remaining = int((deadline - time.monotonic()) * 1000)
+                if remaining < 3000 or result or challenged:
+                    break
+                phase_ms = min(remaining, 20000 if mobile else remaining)
+                phase_deadline = time.monotonic() + phase_ms / 1000
+                settings = {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touch": True} if mobile else {}
+                try:
+                    with contextlib.redirect_stdout(sys.stderr):
+                        DynamicFetcher.fetch(target, headless=True, real_chrome=True,
+                            proxy=browser_proxy(target), user_data_dir=profile,
+                            google_search=False, disable_resources=False,
+                            useragent=MOBILE_AGENT if mobile else None,
+                            additional_args={"service_workers": "block", **settings} if platform == "douyin" else {},
+                            network_idle=False, load_dom=platform == "tiktok", wait=0, locale="zh-CN",
+                            timeout=min(phase_ms - 500, 30000), retries=1,
+                            page_setup=setup_page if platform == "douyin" else None, page_action=inspect_player)
+                except Exception:
+                    if not mobile:
+                        raise
         if result:
             if result.get("_clipdock_error") == "NO_MEDIA":
                 return error("NO_MEDIA", "这个视频已删除、作者不可用，或没有公开媒体。")

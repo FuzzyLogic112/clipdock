@@ -12,5 +12,6 @@
 !public/**
 !scripts/
 !scripts/*.py
+!scripts/*.js
 **/__pycache__/
 **/*.pyc
