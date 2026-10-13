@@ -9,17 +9,18 @@
   const providerSelect = $('provider-select');
   const historyKey = 'clipdock.history.v1';
   const state = { controller: null, history: [], toastTimer: null, loadingTimer: null, preparations: new Set(), catalogReady: false };
-  const platformNames = { youtube: 'YouTube', douyin: '抖音', tiktok: 'TikTok', twitter: 'X / Twitter', x: 'X / Twitter' };
-  const supportedHosts = new Set([
-    'x.com', 'www.x.com', 'mobile.x.com', 'm.x.com',
-    'twitter.com', 'www.twitter.com', 'mobile.twitter.com', 'm.twitter.com',
-    'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be',
-    'douyin.com', 'www.douyin.com', 'v.douyin.com', 'iesdouyin.com', 'www.iesdouyin.com',
-    'tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com',
-    'www.tiktokv.com',
-  ]);
+  const fallbackPlatforms = [
+    { id: 'twitter', label: 'X / Twitter', inputHosts: ['x.com', 'www.x.com', 'mobile.x.com', 'm.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com', 'm.twitter.com'] },
+    { id: 'tiktok', label: 'TikTok', inputHosts: ['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com', 'www.tiktokv.com'] },
+    { id: 'instagram', label: 'Instagram', inputHosts: ['instagram.com', 'www.instagram.com'] },
+    { id: 'weibo', label: '微博', inputHosts: ['weibo.com', 'www.weibo.com', 'm.weibo.cn', 'video.weibo.com', 't.cn'] },
+    { id: 'pinterest', label: 'Pinterest', inputHosts: ['pinterest.com', 'www.pinterest.com', 'pin.it'] },
+  ];
+  const enabledPlatformIds = new Set(fallbackPlatforms.map((platform) => platform.id));
+  const platformNames = Object.fromEntries(fallbackPlatforms.map((platform) => [platform.id, platform.label]));
+  const supportedHosts = new Set(fallbackPlatforms.flatMap((platform) => platform.inputHosts));
   const imageHosts = new Set(['pbs.twimg.com', 'video.twimg.com']);
-  const imageRoots = ['ytimg.com', 'byteimg.com', 'ibyteimg.com', 'douyinpic.com', 'ibytedtos.com', 'byteoversea.com', 'tiktokcdn.com', 'tiktokcdn-us.com', 'tiktokcdn-eu.com'];
+  const imageRoots = ['byteimg.com', 'ibyteimg.com', 'ibytedtos.com', 'byteoversea.com', 'tiktokcdn.com', 'tiktokcdn-us.com', 'tiktokcdn-eu.com', 'sinaimg.cn', 'cdninstagram.com', 'fbcdn.net', 'pinimg.com'];
   const providerNames = { auto: '自动选择', local: '内置解析', greenvideo: 'GreenVideo 扩展' };
 
   function create(tag, className, text) {
@@ -34,18 +35,15 @@
     $('provider-description').textContent = {
       auto: '优先内置，必要时使用扩展解析。',
       local: '由本站服务器直接解析视频平台。',
-      greenvideo: '目前暂停 YouTube、抖音解析。',
+      greenvideo: '通过 GreenVideo 获取可用视频源。',
     }[provider] || '由本站服务器直接解析视频平台。';
     $('provider-disclosure').hidden = provider === 'local';
   }
 
   function renderPlatformCatalog(platforms) {
-    const commonIds = new Set(['youtube', 'douyin', 'tiktok', 'twitter']);
-    const symbols = { youtube: '▶', douyin: '♪', tiktok: '♪', twitter: '𝕏' };
+    const symbols = { tiktok: '♪', twitter: '𝕏' };
     const common = $('platform-list');
-    const extra = $('extra-platform-list');
     common.replaceChildren();
-    extra.replaceChildren();
     platforms.forEach((platform) => {
       const item = create('li');
       if (symbols[platform.id]) {
@@ -54,11 +52,8 @@
         item.append(symbol);
       }
       item.append(create('span', '', platform.label));
-      (commonIds.has(platform.id) ? common : extra).append(item);
+      common.append(item);
     });
-    const extraCount = platforms.filter((platform) => !commonIds.has(platform.id)).length;
-    $('more-platforms').hidden = !extraCount;
-    $('more-platforms-label').textContent = `更多 ${extraCount} 个平台`;
   }
 
   async function loadPlatformCatalog() {
@@ -68,10 +63,12 @@
     try {
       const response = await fetch('/api/platforms', { signal: controller.signal, cache: 'no-store' });
       const data = await response.json();
-      const platforms = data && data.platforms;
-      if (!response.ok || !Array.isArray(platforms) || !platforms.length || platforms.length > 50 || platforms.some((platform) =>
+      const catalog = data && data.platforms;
+      if (!response.ok || !Array.isArray(catalog) || !catalog.length || catalog.length > 50 || catalog.some((platform) =>
         !platform || !/^[a-z][a-z0-9_-]{0,31}$/.test(platform.id) || typeof platform.label !== 'string' || !platform.label.trim() || platform.label.length > 60 ||
         !Array.isArray(platform.inputHosts) || !platform.inputHosts.length || platform.inputHosts.some((host) => !validHost(host)))) throw new Error('invalid-catalog');
+      const platforms = catalog.filter((platform) => enabledPlatformIds.has(platform.id));
+      if (!platforms.length) throw new Error('missing-supported-platforms');
       const providers = Array.isArray(data.providers) ? data.providers.filter((provider) => provider && Object.hasOwn(providerNames, provider.id)) : [];
       if (!providers.some((provider) => provider.id === 'local')) throw new Error('missing-local-provider');
       supportedHosts.clear();
@@ -92,9 +89,10 @@
       state.catalogReady = true;
       renderPlatformCatalog(platforms);
     } catch {
-      $('catalog-notice').textContent = '未能读取扩展平台列表，暂保留 YouTube、抖音、TikTok 和 X / Twitter 的内置解析。请刷新页面重试。';
+      $('catalog-notice').textContent = '未能读取平台配置，暂保留 X / Twitter、TikTok、Instagram、微博和 Pinterest 的内置解析。请刷新页面重试。';
       $('catalog-notice').hidden = false;
       providerSelect.value = 'local';
+      renderPlatformCatalog(fallbackPlatforms);
     } finally {
       clearTimeout(timer);
       providerSelect.disabled = !state.catalogReady || !!state.controller;
@@ -495,6 +493,10 @@
         if (!item || typeof item !== 'object' || typeof item.title !== 'string' || !Number.isFinite(item.timestamp)) return false;
         try { normalizeUrl(item.url); return true; } catch { return false; }
       }).slice(0, 8) : [];
+      if (Array.isArray(stored) && stored.length !== state.history.length) {
+        try { localStorage.setItem(historyKey, JSON.stringify(state.history)); }
+        catch { /* Keep the filtered history in memory when storage is unavailable. */ }
+      }
     } catch { state.history = []; }
     renderHistory();
   }

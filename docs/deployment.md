@@ -2,6 +2,8 @@
 
 ClipDock 需要持续运行的 Node 服务、Python / yt-dlp、FFmpeg 和 Chrome。GitHub 保存代码及执行检查；在线后端使用仓库内的 Docker 镜像。GitHub Pages 不能运行这些后端进程。
 
+当前开放 **X / Twitter、TikTok、Instagram、微博、Pinterest** 5 个平台，支持自动、本地或 GreenVideo 解析。其他平台的历史验证与内部实现不代表当前提供相应入口。
+
 ## Render
 
 1. 在 Render 连接有权读取此 GitHub 仓库的账号，创建 **Blueprint**，选择本仓库和 `main` 分支。
@@ -20,7 +22,6 @@ ClipDock 需要持续运行的 Node 服务、Python / yt-dlp、FFmpeg 和 Chrome
 | `PUBLIC_ORIGIN` | 可选，自定义公开 HTTPS origin |
 | `RENDER_EXTERNAL_URL` | Render 自动注入的网站 origin |
 | `MAX_PARSE_JOBS` | 云端 `1`，限制同时解析数量 |
-| `MAX_MERGE_JOBS` | 云端 `1`，限制同时下载合并数量 |
 | `MAX_DOWNLOADS` | 云端 `2`，限制同时传输视频数量 |
 | `SCRAPLING_PYTHON` | 镜像内 Python `/opt/clipdock-venv/bin/python` |
 | `YTDLP_PATH` | 镜像内解析器 `/opt/clipdock-venv/bin/yt-dlp` |
@@ -39,7 +40,7 @@ docker run --rm clipdock:check python scripts/container_smoke.py
 docker run --rm -p 127.0.0.1:4317:4317 clipdock:check
 ```
 
-第二条命令验证非 root 用户、可写缓存、真实服务启动、yt-dlp、FFmpeg、11 个平台入口，以及真实 Chrome 执行本地页面 JavaScript。它不依赖第三方视频是否可用，适合 GitHub Actions 的 Ubuntu runner。随后访问 `http://127.0.0.1:4317`。
+第二条命令验证非 root 用户、可写缓存、真实服务启动、yt-dlp、FFmpeg、准确的 5 个平台入口，以及真实 Chrome 执行本地页面 JavaScript。平台目录必须仅包含 `twitter`、`tiktok`、`instagram`、`weibo`、`pinterest`。检查不依赖第三方视频是否可用，适合 GitHub Actions 的 Ubuntu runner。随后访问 `http://127.0.0.1:4317`。
 
 Docker 使用 `tini` 回收退出的子进程，应用以 `node` 用户运行。Chrome 通过现有 Scrapling / Playwright 默认启动配置运行，不导入本机浏览器环境。`.dockerignore` 只允许应用代码和依赖清单进入构建上下文。
 

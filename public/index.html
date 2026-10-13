@@ -31,17 +31,13 @@
             <p class="eyebrow"><span></span> 多平台视频下载</p>
             <h1 id="page-title">留住每一个<span>精彩片段。</span></h1>
             <p class="hero-description">粘贴链接或整段分享文字，把喜欢的视频保存到本机。</p>
-            <ul id="platform-list" class="platform-list" aria-label="常用视频平台">
-              <li><span class="platform-symbol youtube-symbol" aria-hidden="true">▶</span>YouTube</li>
-              <li><span class="platform-symbol douyin-symbol" aria-hidden="true">♪</span>抖音</li>
-              <li><span class="platform-symbol tiktok-symbol" aria-hidden="true">♪</span>TikTok</li>
+            <ul id="platform-list" class="platform-list" aria-label="支持的视频平台">
               <li><span class="platform-symbol x-symbol" aria-hidden="true">𝕏</span>X / Twitter</li>
+              <li><span class="platform-symbol tiktok-symbol" aria-hidden="true">♪</span>TikTok</li>
+              <li>Instagram</li>
+              <li>微博</li>
+              <li>Pinterest</li>
             </ul>
-            <details id="more-platforms" class="more-platforms" hidden>
-              <summary><span id="more-platforms-label">更多平台</span><span aria-hidden="true">⌄</span></summary>
-              <ul id="extra-platform-list" class="platform-list" aria-label="更多视频平台"></ul>
-              <p>可用性取决于视频权限和平台限制，扩展平台逐步实测中。</p>
-            </details>
           </div>
           <div class="hero-art" aria-hidden="true">
             <div class="art-grid"></div>
@@ -68,7 +64,7 @@
                   </div>
                   <button type="submit" id="parse-button" class="button button-primary"><span>解析视频</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                 </div>
-                <div class="input-meta"><p id="input-help">支持公开视频、Shorts 和平台分享短链接</p><kbd>Enter ↵</kbd></div>
+                <div class="input-meta"><p id="input-help">支持公开视频和平台分享短链接</p><kbd>Enter ↵</kbd></div>
                 <div class="provider-row">
                   <label for="provider-select">解析方式</label>
                   <select id="provider-select" class="provider-select" aria-describedby="provider-description provider-disclosure" disabled>
@@ -108,7 +104,7 @@
                 <div class="result-heading"><div><span class="section-index">02</span><h2>选择并下载</h2><span id="video-count" class="count-badge"></span><span id="result-platform" class="platform-result" hidden></span><span id="result-provider" class="provider-result" hidden></span></div><a id="source-link" class="source-link" href="#" target="_blank" rel="noopener noreferrer">查看原视频 ↗</a></div>
                 <p id="result-summary" class="result-summary"></p>
                 <div id="video-list" class="video-list"></div>
-                <p class="download-note">需合并的规格会先准备画面和音轨，再交给浏览器保存。请在浏览器下载列表中确认保存进度；链接过期时重新解析即可。</p>
+                <p class="download-note">请在浏览器下载列表中确认保存进度；链接过期时重新解析即可。</p>
               </div>
             </section>
           </div>
@@ -126,11 +122,11 @@
           <div class="steps-grid">
             <article><span class="step-number">1</span><div><h3>复制视频分享链接</h3><p>从支持平台的分享菜单复制，<br class="desktop-break">含单个链接的分享文字也可粘贴。</p></div></article>
             <article><span class="step-number">2</span><div><h3>查看可用的视频源</h3><p>自动识别平台和可用清晰度，<br class="desktop-break">优先选中无平台水印的规格。</p></div></article>
-            <article><span class="step-number">3</span><div><h3>选清晰度，保存</h3><p>按需合并画面和音轨，<br class="desktop-break">准备完成后交给浏览器保存。</p></div></article>
+            <article><span class="step-number">3</span><div><h3>选清晰度，保存</h3><p>选择合适的清晰度，<br class="desktop-break">点击下载，由浏览器保存视频。</p></div></article>
           </div>
-          <details class="help-detail"><summary>内置、扩展和自动解析有什么区别？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>内置解析由运行此网站的服务器连接视频平台。扩展解析会将视频链接发送到 GreenVideo 获取可用视频源；自动模式优先尝试内置解析，必要时使用扩展解析，结果上会标出实际来源。GreenVideo 目前暂停 YouTube 和抖音解析，这两个平台请使用自动或内置方式。平台是否可用仍取决于当前网络、视频权限和服务状态。</p></details>
+          <details class="help-detail"><summary>内置、扩展和自动解析有什么区别？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>内置解析由运行此网站的服务器连接视频平台。扩展解析会将视频链接发送到 GreenVideo 获取可用视频源；自动模式优先尝试内置解析，必要时使用扩展解析，结果上会标出实际来源。平台是否可用仍取决于当前网络、视频权限和服务状态。</p></details>
           <details class="help-detail"><summary>“无平台水印源优先”是什么意思？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>如果平台提供可确认的无平台水印视频源，会优先选中它。每个规格会标明实际可确认的水印状态；不能确认时会如实提示。原画面自带的文字、作者 Logo 或已嵌入画面的标记不会被自动擦除。</p></details>
-          <details class="help-detail"><summary>为什么有些视频无法解析或下载？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>受保护、已删除、需要登录或受地区限制的视频可能无法读取，平台验证或网络异常也可能导致失败。请先确认原视频可公开访问，再重新尝试。部分高清规格需要先合并音轨，准备进度会显示在视频卡片中；取消等待只停止页面等待，视频可能仍在准备。</p></details>
+          <details class="help-detail"><summary>为什么有些视频无法解析或下载？<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><p>受保护、已删除、需要登录或受地区限制的视频可能无法读取，平台验证或网络异常也可能导致失败。请先确认原视频可公开访问，再重新尝试；下载链接过期时重新解析即可。</p></details>
         </section>
       </main>
 

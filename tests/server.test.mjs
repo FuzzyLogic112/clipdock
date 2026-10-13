@@ -35,7 +35,7 @@ test('平台目录可用于前端且解析方式隔离缓存、报告实际来�
     return { ...metadata(), provider: options.provider === 'greenvideo' ? 'greenvideo' : 'local' };
   } });
   const catalog = await (await fetch(base + '/api/platforms')).json();
-  assert.equal(catalog.platforms.length, 11);
+  assert.deepEqual(catalog.platforms.map(row => row.id).sort(), ['instagram', 'pinterest', 'tiktok', 'twitter', 'weibo']);
   assert.ok(catalog.platforms.find(row => row.id === 'weibo').inputHosts.includes('weibo.com'));
   assert.deepEqual(catalog.providers.map(row => row.id), ['auto', 'local', 'greenvideo']);
   const request = provider => fetch(base + '/api/parse-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: tweet, provider }) });
@@ -66,6 +66,29 @@ test('不接受任意URL、跨站请求或不存在的下载票据', async t => 
   assert.equal((await fetch(base+'/api/download/'+'a'.repeat(48))).status,410);
   const hostStatus=await new Promise((resolve,reject)=>http.get(base+'/api/health',{headers:{Host:'evil.example'}},response=>{response.resume();resolve(response.statusCode);}).on('error',reject));
   assert.equal(hostStatus,403);
+});
+
+test('六个下架平台及其别名、分享短链在API入口被拒绝，不调用解析器', async t => {
+  let calls = 0;
+  const base = await fixture(t, { maxRequestsPerMinute: 100, resolveVideo: async () => { calls++; return metadata(); } });
+  const unsupported = [
+    'https://www.youtube.com/watch?v=jNQXAC9IVRw', 'https://youtu.be/jNQXAC9IVRw', 'https://m.youtube.com/shorts/jNQXAC9IVRw',
+    'https://www.douyin.com/video/123', '复制链接 https://v.douyin.com/AbCd12/ 打开抖音观看', 'https://www.iesdouyin.com/share/video/123/',
+    'https://www.kuaishou.com/short-video/abcdef123', 'https://v.kuaishou.com/AbCd12',
+    'https://www.facebook.com/watch/?v=12345', 'https://m.facebook.com/reel/12345', 'https://fb.watch/AbCd12/',
+    'https://vimeo.com/76979871', 'https://player.vimeo.com/video/76979871',
+    'https://www.xiaohongshu.com/explore/6411cf99000000001300b6d9',
+    'https://www.xiaohongshu.com/discovery/item/6411cf99000000001300b6d9?xsec_token=sample',
+    '分享笔记 https://xhslink.com/a/AbCd12 查看视频',
+  ];
+  for (const provider of ['auto', 'local', 'greenvideo']) {
+    for (const url of unsupported) {
+      const response = await fetch(base + '/api/parse-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, provider }) });
+      assert.equal(response.status, 400, `${provider}: ${url}`);
+      assert.equal((await response.json()).code, 'PLATFORM_UNSUPPORTED', `${provider}: ${url}`);
+    }
+  }
+  assert.equal(calls, 0);
 });
 
 test('拒绝解析器返回的非受信媒体来源', async t => {
@@ -112,11 +135,13 @@ test('解析失败保留用户可理解的错误，限制过量请求', async t 
   const limited=await parse(base); assert.equal(limited.status,429); assert.equal(limited.headers.get('retry-after'),'60');
 });
 
-test('四平台结果保留真实水印状态，下载地址和媒体请求头不泄露', async t => {
+test('五个保留平台的结果保留真实水印状态，下载地址和媒体请求头不泄露', async t => {
   const cases = [
-    ['https://www.youtube.com/watch?v=jNQXAC9IVRw','youtube','https://rr1---sn-test.googlevideo.com/videoplayback?id=1','source'],
-    ['https://www.douyin.com/video/6963263655114722595','douyin','https://v3.douyinvod.com/video/test.mp4','none'],
+    [tweet,'twitter','https://video.twimg.com/test/video.mp4','source'],
     ['https://www.tiktok.com/@example/video/7170520270497680683','tiktok','https://v16.tiktokcdn.com/video/test.mp4','present'],
+    ['https://www.instagram.com/reel/Chunk8-jurw/','instagram','https://scontent.cdninstagram.com/video/test.mp4','unknown'],
+    ['https://weibo.com/7827771738/N4xlMvjhI','weibo','https://f.video.weibocdn.com/video/test.mp4','unknown'],
+    ['https://www.pinterest.com/pin/664281013778109217/','pinterest','https://v1.pinimg.com/video/test.mp4','unknown'],
   ];
   for (const [url,platform,media,watermark] of cases) {
     const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],{url:media,watermark,watermarkLabel:'测试状态',headers:{Cookie:'should-not-leak'}});return m;}});
@@ -134,11 +159,11 @@ test('音视频准备去重，完成后支持本地附件与范围下载', async
   t.after(()=>fs.rm(dir,{recursive:true,force:true}));
   const filePath=path.join(dir,'test.mp4'); await fs.writeFile(filePath,'merged-content');
   let calls=0, finish;
-  const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],{url:'https://rr1---sn-test.googlevideo.com/videoplayback?id=v',audioUrl:'https://rr1---sn-test.googlevideo.com/videoplayback?id=a',requiresMerge:true});return m;},prepareMergedMedia:async(ticket,{onProgress})=>{
+  const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],{url:'https://video.twimg.com/test/video.mp4',audioUrl:'https://video.twimg.com/test/audio.m4a',requiresMerge:true});return m;},prepareMergedMedia:async(ticket,{onProgress})=>{
     calls++;onProgress({stage:'merging',progress:null});await new Promise(resolve=>{finish=resolve;});
     return {path:filePath,size:14,cleanup:async()=>{}};
   }});
-  const data=await (await parse(base,'https://youtu.be/jNQXAC9IVRw')).json();
+  const data=await (await parse(base,tweet)).json();
   const downloadUrl=data.videos[0].formats[0].downloadUrl, prepareUrl=base+downloadUrl.replace('/download/','/prepare/');
   assert.equal((await fetch(base+downloadUrl)).status,409);
   const [first,second]=await Promise.all([fetch(prepareUrl,{method:'POST'}),fetch(prepareUrl,{method:'POST'})]);
@@ -154,18 +179,18 @@ test('音视频准备去重，完成后支持本地附件与范围下载', async
 
 test('拒绝另一平台的媒体源和不安全的合并音轨', async t => {
   for (const bad of [
-    {url:'https://video.twimg.com/video.mp4'},
-    {url:'https://rr1---sn-test.googlevideo.com/videoplayback?id=v',audioUrl:'http://127.0.0.1/secret',requiresMerge:true},
+    {url:'https://v1.pinimg.com/video/test.mp4'},
+    {url:'https://video.twimg.com/test/video.mp4',audioUrl:'http://127.0.0.1/secret',requiresMerge:true},
   ]) {
     const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],bad);return m;}});
-    assert.equal((await parse(base,'https://youtu.be/jNQXAC9IVRw')).status,422);
+    assert.equal((await parse(base,tweet)).status,422);
   }
 });
 
 test('准备失败保留可理解错误，重试可以重新启动任务', async t => {
   let calls=0;
-  const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],{url:'https://rr1---sn-test.googlevideo.com/videoplayback?v',audioUrl:'https://rr1---sn-test.googlevideo.com/videoplayback?a',requiresMerge:true});return m;},prepareMergedMedia:async()=>{calls++;throw Object.assign(new Error('请安装 FFmpeg。'),{code:'FFMPEG_MISSING',status:503});}});
-  const data=await (await parse(base,'https://youtu.be/jNQXAC9IVRw')).json();
+  const base=await fixture(t,{extractVideo:async()=>{const m=metadata();Object.assign(m.videos[0].formats[0],{url:'https://video.twimg.com/test/video.mp4',audioUrl:'https://video.twimg.com/test/audio.m4a',requiresMerge:true});return m;},prepareMergedMedia:async()=>{calls++;throw Object.assign(new Error('请安装 FFmpeg。'),{code:'FFMPEG_MISSING',status:503});}});
+  const data=await (await parse(base,tweet)).json();
   const prepareUrl=base+data.videos[0].formats[0].downloadUrl.replace('/download/','/prepare/');
   await fetch(prepareUrl,{method:'POST'});
   const failed=await (await fetch(prepareUrl)).json();

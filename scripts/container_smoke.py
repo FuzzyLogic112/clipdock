@@ -66,7 +66,9 @@ def main():
                 assert response.status == 200
             with opener.open("http://127.0.0.1:4317/api/platforms", timeout=5) as response:
                 catalog = json.load(response)
-            assert len(catalog["platforms"]) >= 11, catalog
+            expected_platforms = {"twitter", "tiktok", "instagram", "weibo", "pinterest"}
+            platform_ids = [platform["id"] for platform in catalog["platforms"]]
+            assert len(platform_ids) == len(expected_platforms) and set(platform_ids) == expected_platforms, catalog
         finally:
             process.terminate()
             try:

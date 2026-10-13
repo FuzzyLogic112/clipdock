@@ -133,8 +133,7 @@ test('additional platform media and image rules remain bounded to evidence-backe
 
 test('platform and image catalogs expose independent copies of the validation policy', () => {
   const catalog = platformCatalog();
-  assert.equal(catalog.length, 11);
-  assert.deepEqual(catalog.map(item => item.id), Object.keys(PLATFORM_LABELS));
+  assert.deepEqual(catalog.map(item => item.id), ['twitter', 'tiktok', 'instagram', 'weibo', 'pinterest']);
   for (const item of catalog) {
     assert.equal(item.label, PLATFORM_LABELS[item.id]);
     assert.ok(item.inputHosts.length > 0);
