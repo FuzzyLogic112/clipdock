@@ -94,7 +94,10 @@ def main():
             fixture.shutdown()
             thread.join(timeout=5)
     assert page_title == ["clipdock-chrome-ok"], page_title
-    print(json.dumps({"ok": True, "checks": ["non-root", "cache-write", "http", "yt-dlp", "ffmpeg", "platforms", "chrome-js"]}))
+    checks = ["cache-write", "http", "yt-dlp", "ffmpeg", "platforms", "chrome-js"]
+    if hasattr(os, "geteuid"):
+        checks.insert(0, "non-root")
+    print(json.dumps({"ok": True, "checks": checks}))
 
 
 if __name__ == "__main__":
